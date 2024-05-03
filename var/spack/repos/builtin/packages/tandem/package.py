@@ -43,6 +43,8 @@ class Tandem(CMakePackage, CudaPackage, ROCmPackage):
     )
     variant("libxsmm", default=False, description="Install libxsmm-generator")
 
+    variant("python", default=False, description="installs python and numpy")
+
     depends_on("mpi")
 
     for var in ["openmpi", "mpich", "mvapich", "mvapich2", "mvapich2-gdr"]:
@@ -62,6 +64,10 @@ class Tandem(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("petsc@3.14.6:3.18.5 +int64 +mumps +scalapack +knl", when="target=skylake:")
     depends_on("petsc@3.14.6:3.18.5 +int64 +mumps +scalapack memalign=32 +cuda", when="+cuda")
     depends_on("petsc@3.14.6:3.18.5 +int64 +mumps +scalapack memalign=32 +rocm", when="+rocm")
+
+    # build dependencies (code generation)
+    depends_on("python@3", type="build", when="+python")
+    depends_on("py-numpy", type="build", when="+python")
 
     # see https://github.com/TEAR-ERC/tandem/issues/45
     conflicts("%intel")
