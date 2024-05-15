@@ -214,7 +214,9 @@ class Seissol(CMakePackage, CudaPackage, ROCmPackage):
     depends_on("py-setuptools", type="build", when="+python")
 
     depends_on("py-pspamm", when="gemm_tools_list=PSpaMM", type="build")
-    depends_on("libxsmm@1.17 +generator", when="gemm_tools_list=LIBXSMM target=x86_64:", type="build")
+    depends_on(
+        "libxsmm@1.17 +generator", when="gemm_tools_list=LIBXSMM target=x86_64:", type="build"
+    )
 
     # TODO: gemmforge
     # TODO: chainforge
