@@ -5,8 +5,6 @@
 
 import os
 
-import llnl.util.tty as tty
-
 from spack.package import *
 
 
@@ -71,6 +69,10 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
     # Development branches
     version("master", branch="master")
     version("develop", branch="develop")
+
+    depends_on("c", type="build")  # generated
+    depends_on("cxx", type="build")  # generated
+    depends_on("fortran", type="build")  # generated
 
     variant("jsrun", default=False, description="Enable/Disable jsrun command for testing")
     variant("shared", default=False, description="Enable/Disable shared libraries")
@@ -176,7 +178,7 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
         args = []
         spec = self.spec
 
-        use_gpu = "+cuda" in spec or "+rocm" in spec
+        use_gpu = spec.satisfies("+cuda") or spec.satisfies("+rocm")
 
         if use_gpu:
             args.extend(
@@ -206,7 +208,7 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
                 self.define_from_variant("HIOP_USE_COINHSL", "sparse"),
                 self.define_from_variant("HIOP_TEST_WITH_BSUB", "jsrun"),
                 self.define_from_variant("HIOP_USE_GINKGO", "ginkgo"),
-                self.define_from_variant("HIOP_USE_CUSOLVER_LU", "cusolver_lu"),
+                self.define_from_variant("HIOP_USE_RESOLVE", "cusolver_lu"),
             ]
         )
 
@@ -216,7 +218,7 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
         # args.append(
         #     self.define('HIOP_CTEST_LAUNCH_COMMAND', 'srun -t 10:00'))
 
-        if "+mpi" in spec:
+        if spec.satisfies("+mpi"):
             args.extend(
                 [
                     self.define("MPI_HOME", spec["mpi"].prefix),
@@ -235,7 +237,7 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
             #     self.define('MPI_Fortran_LINK_FLAGS',
             #         '-L/path/to/libfabric/lib64/ -lfabric'))
 
-        if "+cuda" in spec:
+        if spec.satisfies("+cuda"):
             cuda_arch_list = spec.variants["cuda_arch"].value
             if cuda_arch_list[0] != "none":
                 args.append(self.define("CMAKE_CUDA_ARCHITECTURES", cuda_arch_list))
@@ -248,7 +250,7 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
         # args.append(
         #     self.define('HIP_CLANG_INCLUDE_PATH',
         #         '/opt/rocm-X.Y.Z/llvm/lib/clang/14.0.0/include/'))
-        if "+rocm" in spec:
+        if spec.satisfies("+rocm"):
             args.append(self.define("CMAKE_CXX_COMPILER", spec["hip"].hipcc))
 
             rocm_arch_list = spec.variants["amdgpu_target"].value
@@ -256,7 +258,7 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
                 args.append(self.define("GPU_TARGETS", rocm_arch_list))
                 args.append(self.define("AMDGPU_TARGETS", rocm_arch_list))
 
-        if "+kron" in spec:
+        if spec.satisfies("+kron"):
             args.append(self.define("HIOP_UMFPACK_DIR", spec["suite-sparse"].prefix))
 
         # Unconditionally disable strumpack, even when +sparse. This may be
@@ -264,7 +266,7 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
         # fully supported in spack at the moment.
         args.append(self.define("HIOP_USE_STRUMPACK", False))
 
-        if "+sparse" in spec:
+        if spec.satisfies("+sparse"):
             args.append(self.define("HIOP_COINHSL_DIR", spec["coinhsl"].prefix))
 
         return args
@@ -274,37 +276,35 @@ class Hiop(CMakePackage, CudaPackage, ROCmPackage):
     #
     # export SPACK_USER_CACHE_PATH=/tmp/spack
     # export SPACK_DISABLE_LOCAL_CONFIG=true
-    def test(self):
-        if not self.spec.satisfies("@develop") or not os.path.isdir(self.prefix.bin):
-            tty.info("Skipping: checks not installed in bin for v{0}".format(self.version))
-            return
 
-        tests = [
-            ["NlpMdsEx1.exe", "400", "100", "0", "-selfcheck"],
-            ["NlpMdsEx1.exe", "400", "100", "1", "-selfcheck"],
-            ["NlpMdsEx1.exe", "400", "100", "0", "-empty_sp_row", "-selfcheck"],
+    def run_hiop(self, raja):
+        if raja:
+            exName = "NlpMdsEx1Raja.exe"
+        else:
+            exName = "NlpMdsEx1.exe"
+
+        exe = os.path.join(self.prefix.bin, exName)
+        if not os.path.exists(exe):
+            raise SkipTest(f"{exName} does not exist in version {self.version}")
+
+        options = [
+            ["400", "100", "0", "-selfcheck"],
+            ["400", "100", "1", "-selfcheck"],
+            ["400", "100", "0", "-empty_sp_row", "-selfcheck"],
         ]
 
-        if "+raja" in self.spec:
-            tests.extend(
-                [
-                    ["NlpMdsEx1Raja.exe", "400", "100", "0", "-selfcheck"],
-                    ["NlpMdsEx1Raja.exe", "400", "100", "1", "-selfcheck"],
-                    ["NlpMdsEx1Raja.exe", "400", "100", "0", "-empty_sp_row", "-selfcheck"],
-                ]
-            )
+        exe = which(exe)
 
-        for i, test in enumerate(tests):
-            exe = os.path.join(self.prefix.bin, test[0])
-            args = test[1:]
-            reason = 'test {0}: "{1}"'.format(i, " ".join(test))
-            self.run_test(
-                exe,
-                args,
-                [],
-                0,
-                installed=False,
-                purpose=reason,
-                skip_missing=True,
-                work_dir=self.prefix.bin,
-            )
+        for i, args in enumerate(options):
+            with test_part(self, f"test_{exName}_{i+1}", purpose=" ".join(args)):
+                exe(*args)
+
+    def test_NlpMdsEx1(self):
+        """Test NlpMdsEx1"""
+        self.run_hiop(False)
+
+    def test_NlpMdsEx1Raja(self):
+        """Test NlpMdsEx1 with +raja"""
+        if "+raja" not in self.spec:
+            raise SkipTest("Package must be installed with +raja")
+        self.run_hiop(True)
