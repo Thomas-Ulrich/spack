@@ -74,6 +74,7 @@ class Tandem(CMakePackage, CudaPackage, ROCmPackage):
 
     depends_on("python@3", type="build", when="+python")
     depends_on("py-numpy", type="build", when="+python")
+    depends_on("py-setuptools", type="build", when="+python")
 
     # see https://github.com/TEAR-ERC/tandem/issues/45
     conflicts("%intel")
@@ -98,20 +99,52 @@ class Tandem(CMakePackage, CudaPackage, ROCmPackage):
             self.define_from_variant("MIN_QUADRATURE_ORDER", "min_quadrature_order"),
         ]
 
-        arch_dic = {}
-        arch_dic["skylake"] = "skl"
-        arch_dic["skylake_avx512"] = "skx"
-        arch_dic["haswell"] = "hsw"
-        arch_dic["sandybridge"] = "snb"
-        arch_dic["zen2"] = "rome"
-        arch_dic["zen"] = "naples"
-        target = str(self.spec.target)
+        # basic family matching
+        hostarch = "noarch"
+        if self.spec.target.family == "aarch64":
+            hostarch = "neon"
+        if self.spec.target.family == "x86_64":
+            # pure x86_64v1 doesn't support anything above SSE3
+            hostarch = "noarch"
+        if self.spec.target.family == "x86_64_v2":
+            # AVX is only required for x86_64v3 and upwards
+            hostarch = "wsm"
+        if self.spec.target.family == "x86_64_v3":
+            hostarch = "hsw"
+        if self.spec.target.family == "x86_64_v4":
+            hostarch = "skx"
 
-        if target in arch_dic:
-            args.append("-DARCH=" + arch_dic[target])
-        else:
-            print(target, "not in arch list of tandem, using native")
-            args.append("-DARCH=native")
+        # specific architecture matching
+        if self.spec.target >= "westmere":
+            hostarch = "wsm"
+        if self.spec.target >= "sandybridge":
+            hostarch = "snb"
+        if self.spec.target >= "haswell":
+            hostarch = "hsw"
+        if self.spec.target >= "mic_knl":
+            hostarch = "knl"
+        if self.spec.target >= "skylake_avx512":
+            hostarch = "skx"
+        if self.spec.target >= "zen":
+            hostarch = "naples"
+        if self.spec.target >= "zen2":
+            hostarch = "rome"
+        if self.spec.target >= "zen3":
+            hostarch = "milan"
+        if self.spec.target >= "zen4":
+            hostarch = "bergamo"
+        if self.spec.target >= "thunderx2":
+            hostarch = "thunderx2t99"
+        if self.spec.target >= "power9":
+            hostarch = "power9"
+        if self.spec.target >= "m1":
+            hostarch = "apple-m1"
+        if self.spec.target >= "m2":
+            hostarch = "apple-m2"
+        if self.spec.target >= "a64fx":
+            hostarch = "a64fx"
+
+        args.append(f"-DARCH={hostarch}")
 
         return args
 
