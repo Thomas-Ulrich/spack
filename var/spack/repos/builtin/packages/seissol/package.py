@@ -164,6 +164,12 @@ class Seissol(CMakePackage, CudaPackage, ROCmPackage):
         msg="A value for intel_gpu_arch must be specified. Add intel_gpu_arch=XX",
     )
 
+    conflicts(
+        "%intel",
+        when="@1.3:",
+        msg="The Intel compiler is not longer supported from version 1.3 onward. Please consider e.g. gcc or oneapi."
+    )
+
     variant(
         "gemm_tools_list",
         default="LIBXSMM,PSpaMM",
