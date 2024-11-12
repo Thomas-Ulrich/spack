@@ -17,10 +17,33 @@ class Seissol(CMakePackage, CudaPackage, ROCmPackage):
     version("master", branch="master", submodules=True)
     # we cannot use the tar.gz file because it does not contains submodules
     version(
+        "1.3.0", tag="v1.3.0", commit="91377508af4412914d707b04481f8b678b1c4044", submodules=True
+    )
+    version(
+        "1.2.0", tag="v1.2.0", commit="2057e6e81965e0789128c6d177592800bcf956e1", submodules=True
+    )
+    version(
+        "1.1.4", tag="v1.1.4", commit="6d301757378ad8446173e0a12c095a695a708aaf", submodules=True
+    )
+    version(
         "1.1.3", tag="v1.1.3", commit="01ae1b127fcc6f766b819d2e797df6a3547d730a", submodules=True
     )
     version(
         "1.1.2", tag="v1.1.2", commit="71002c1c1498ebd6f50a954731da68fa4f9d436b", submodules=True
+    )
+
+    version(
+        "1.0.1", tag="v1.0.1", commit="9b1b0ec970af4ad79a155c63035234b660838476", submodules=True
+    )
+    version(
+        "0.9.0", tag="v0.9.0", commit="eadae61c2432b89e528579944c3d3c60a7a67ba9", submodules=True
+    )
+
+    version(
+        "sc21revision",
+        tag="sc21revision",
+        commit="ac40173e841625da38b0d0193e49c543fb3d519b",
+        submodules=True,
     )
 
     maintainers("Thomas-Ulrich", "davschneller", "vikaskurapati")
